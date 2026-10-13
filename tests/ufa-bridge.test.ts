@@ -278,6 +278,15 @@ test("fixture: observed task and run data keeps source status and drops payloads
             created_at: "2026-10-13T10:01:00+00:00",
             finished_at: null,
           },
+          {
+            id: "run_0123456789ab",
+            task_id: "",
+            status: "running",
+            goal: MARKER,
+            result: MARKER,
+            created_at: "2026-10-13T10:01:30+00:00",
+            finished_at: "",
+          },
         ],
       });
     }
@@ -348,6 +357,10 @@ test("fixture: observed task and run data keeps source status and drops payloads
     assert.equal(overview.tasks?.[0]?.created_at, "2026-10-13T10:00:00+00:00");
     assert.equal(overview.tasks?.[0]?.title, "[redacted] visible");
     assert.equal(overview.runs?.[0]?.status, "running");
+    assert.equal(overview.runs?.[1]?.id, "run_0123456789ab");
+    assert.equal(overview.runs?.[1]?.status, "running");
+    assert.equal(overview.runs?.[1]?.finished_at, "");
+    assert.equal(overview.runs?.[1]?.task_id, undefined);
     assert.equal(task.events?.[0]?.payloadOmitted, true);
     assert.equal(task.events?.[0]?.type, "tool.output");
     assert.equal(

@@ -16,7 +16,7 @@ OpenMuse remains the presentation surface. UFA remains authoritative for task st
 | Task list and detail | `GET /api/tasks`, `GET /api/tasks/{id}` | Source `state`, `created_at`, and `updated_at` are shown unchanged. |
 | Event metadata | `GET /api/tasks/{id}/events` | `redact=false` is never sent. Payloads are dropped before the response leaves the server. |
 | Evidence metadata | `GET /api/tasks/{id}/bundle` | Counts, manifest hash, artifact ids/hashes, and whether a signature field was present. Signature verification is not claimed. |
-| Runs | `GET /api/runs`, `GET /api/runs/{id}` | Status and timestamps only. Run results and step payloads are dropped. |
+| Runs | `GET /api/runs`, `GET /api/runs/{id}` | Status and timestamps only. Run results and step payloads are dropped. Candidate `028b472` issues 12-hex run ids and an empty `finished_at` while a run is open; task and event ids remain 16 hex. |
 
 Any other method or path is rejected in the adapter before a request is sent. Redirects are not followed. The response body is size-capped.
 

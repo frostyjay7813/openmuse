@@ -3,7 +3,7 @@ import { z } from "zod";
 /** UFA revision this read contract was written against. Not a live-connection claim. */
 export const UFA_CONTRACT_REF = "028b4721df4f71c1ee0c6c0db4a929ce09227e95";
 
-const ID_PATTERN = /^[a-z][a-z0-9]{0,15}_[0-9a-f]{16}$/;
+const ID_PATTERN = /^[a-z][a-z0-9]{0,15}_[0-9a-f]{12,16}$/;
 const HASH_PATTERN = /^[0-9a-f]{64}$/;
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
@@ -43,10 +43,10 @@ const bundleSchema = z.object({
 });
 const runSchema = z.object({
   id: idSchema,
-  task_id: idSchema.optional(),
+  task_id: z.union([idSchema, z.literal("")]).optional(),
   status: z.string().min(1).max(64),
   created_at: z.string().min(1).max(64),
-  finished_at: z.string().min(1).max(64).nullable().optional(),
+  finished_at: z.string().max(64).nullable().optional(),
 });
 
 export type UfaEvidence = "fixture" | "unverified";
@@ -135,10 +135,10 @@ export function isPermittedUfaRequest(method: string, pathname: string): boolean
   if (!pathname.startsWith("/") || /[?#\\%]|\.\./.test(pathname)) return false;
   if (pathname === "/api/tasks" || pathname === "/api/runs") return true;
   const task = pathname.match(
-    /^\/api\/tasks\/([a-z][a-z0-9]{0,15}_[0-9a-f]{16})(?:\/(events|bundle))?$/,
+    /^\/api\/tasks\/([a-z][a-z0-9]{0,15}_[0-9a-f]{12,16})(?:\/(events|bundle))?$/,
   );
   if (task) return true;
-  const run = pathname.match(/^\/api\/runs\/([a-z][a-z0-9]{0,15}_[0-9a-f]{16})$/);
+  const run = pathname.match(/^\/api\/runs\/([a-z][a-z0-9]{0,15}_[0-9a-f]{12,16})$/);
   return Boolean(run);
 }
 
