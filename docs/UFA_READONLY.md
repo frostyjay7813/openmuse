@@ -5,7 +5,8 @@
 ## Revisions
 
 - OpenMuse base: `CopilotKit/openmuse@1ac68f3909f2478ab6280883f1ab5ea65eb5719d`
-- UFA candidate the client was written against: `frostyjay7813/Unified-Frontier-Agent@028b4721df4f71c1ee0c6c0db4a929ce09227e95` (draft PR #7, not merged)
+- UFA candidate the read contract was written against: `frostyjay7813/Unified-Frontier-Agent@028b4721df4f71c1ee0c6c0db4a929ce09227e95` (draft PR #7, not merged)
+- UFA key-creation contract: `frostyjay7813/Unified-Frontier-Agent@db71c07aea553141f8d4c752ba0c5db4dc4a798f` on `spike/openmuse-readonly-adapter`. Omitting `scopes`, sending `null`, or sending an invalid set is rejected and does not grant `["*"]`. Explicit `["*"]` alone is an operator opt-in. Draft PR #7 is not merged.
 
 OpenMuse remains the presentation surface. UFA remains authoritative for task state, authorization, and evidence. The bridge does not create tasks, transition them, approve actions, schedule work, or open a browser or terminal.
 
@@ -33,7 +34,7 @@ UFA_BRIDGE_ALLOWED_OWNER=local-user
 
 `UFA_API_KEY` is read only by `apps/server`. Sample-mode sessions are owned by `local-user`; set `UFA_BRIDGE_ALLOWED_OWNER` to that value for a local test, or to the real owner when OpenMuse has more than one. Other signed-in owners receive 403 and no UFA request is made.
 
-Create the key on UFA with an explicit scope list (`tasks:read` and `runs:read`). Do not omit `scopes` (that still defaults to the legacy wildcard on the spike branch). Do not copy the key into `EXPO_PUBLIC_*`, mobile storage, prompts, or logs.
+Create the key on UFA with an explicit scope list (`tasks:read` and `runs:read`). Omitting `scopes`, or sending `null`, is rejected and must never be treated as `["*"]`. Do not request the administrative wildcard. Do not copy the key into `EXPO_PUBLIC_*`, mobile storage, prompts, or logs.
 
 `UFA_BASE_URL` must be an origin. `http` is accepted only for `localhost`, `127.0.0.1`, and `::1`. Remote origins must be `https`. The process fails to start if the bridge is enabled without a base URL, key, and allowed owner.
 
