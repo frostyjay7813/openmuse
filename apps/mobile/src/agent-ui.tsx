@@ -14,6 +14,7 @@ import {
   Play,
   Plus,
   RefreshCw,
+  ShieldCheck,
   Square,
   Target,
   Users,
@@ -1779,6 +1780,12 @@ export function AppsScreen() {
       title: "Files",
       detail: "PDFs, forms and filled copies",
       icon: FileText,
+    },
+    {
+      section: "ufa" as const,
+      title: "Frontier Agent",
+      detail: "Read-only UFA tasks and evidence metadata",
+      icon: ShieldCheck,
     },
   ];
   return (

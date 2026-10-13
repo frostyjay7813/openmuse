@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseEnv } from "node:util";
+import { readUfaBridgeConfig, type UfaBridgeConfig } from "../../../packages/backends/src/ufa.ts";
 
 /** .env keys whose file value loses to a different value already set in the environment. */
 export function shadowedEnvKeys(
@@ -59,6 +60,8 @@ export interface Config {
   e2bApiKey?: string;
   allowedOrigins: string[];
   trustProxy?: boolean;
+  /** Read-only UFA bridge. Disabled unless UFA_BRIDGE_ENABLED=true and the origin, key, and owner are set. */
+  ufa?: UfaBridgeConfig;
 }
 
 export type ComputerProvider = "docker" | "e2b-desktop";
@@ -169,6 +172,7 @@ export function readConfig(): Config {
     // Only trust X-Forwarded-For/X-Real-IP when the deployment is known to sit
     // behind a proxy that sets them; otherwise a direct caller can spoof them.
     trustProxy: process.env.TRUST_PROXY === "true",
+    ufa: readUfaBridgeConfig(),
   };
   if (
     mode === "live" &&

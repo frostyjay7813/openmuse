@@ -39,6 +39,7 @@ import { ComputerDraftProvider } from "./src/computer-drafts";
 import { Details } from "./src/details";
 import { BrowserScreen, CalendarScreen, FilesScreen, MailScreen } from "./src/screens";
 import { ThreadsProvider, ThreadsSheet, useMuseThread } from "./src/threads";
+import { UfaScreen } from "./src/ufa-screen";
 import { Button, Card, colors, ErrorNotice, Field, IconButton, Mascot, s } from "./src/ui";
 import { type Detail, useWorkspace, WorkspaceContext } from "./src/workspace";
 
@@ -65,6 +66,10 @@ const titles: Partial<Record<Section, { title: string; subtitle: string }>> = {
   calendar: { title: "Calendar", subtitle: "Time for what matters." },
   browser: { title: "Browser", subtitle: "Your connected browsing sessions." },
   files: { title: "Files", subtitle: "Documents, forms and filled copies." },
+  ufa: {
+    title: "Frontier Agent",
+    subtitle: "Read-only observation of Unified Frontier Agent. Not a live connection.",
+  },
 };
 export default function App() {
   const [token, setToken] = useState("");
@@ -281,14 +286,16 @@ function WorkspaceShell({
           ? BrowserScreen
           : section === "files"
             ? FilesScreen
-            : section === "activity"
-              ? AgentActivityScreen
-              : section === "ideas"
-                ? IdeasScreen
-                : section === "goals"
-                  ? GoalsScreen
-                  : AppsScreen;
-  const utility = ["mail", "calendar", "browser", "files"].includes(section);
+            : section === "ufa"
+              ? UfaScreen
+              : section === "activity"
+                ? AgentActivityScreen
+                : section === "ideas"
+                  ? IdeasScreen
+                  : section === "goals"
+                    ? GoalsScreen
+                    : AppsScreen;
+  const utility = ["mail", "calendar", "browser", "files", "ufa"].includes(section);
   return (
     <>
       <WorkspaceTools />
