@@ -359,6 +359,12 @@ export class WorkspaceService {
           status: "unconfigured",
           capabilities: ["Integration adapter available"],
         },
+        {
+          id: "ufa",
+          name: "Unified Frontier Agent",
+          status: this.config.ufa?.enabled ? "unavailable" : "unconfigured",
+          capabilities: ["Read-only tasks", "Redacted event metadata", "Evidence metadata"],
+        },
       ],
       runtime: {
         provider: this.config.agentBackend === "sample" ? "sample" : "model",

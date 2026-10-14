@@ -6,6 +6,7 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { z } from "zod";
+import { UfaAdapter } from "../../../packages/backends/src/ufa.ts";
 import {
   calendarRangeSchema,
   emailDraftSchema,
@@ -25,12 +26,17 @@ import { AppError } from "./errors.ts";
 import { Files } from "./files.ts";
 import { GoogleAuth } from "./google-auth.ts";
 import { rateLimit } from "./rate-limit.ts";
+import { ufaRoutes } from "./ufa-routes.ts";
 import { WorkspaceService } from "./workspace.ts";
 
 export async function createApp(
   db: Store,
   config: Config,
-  options: { docker?: DockerRunner } = {},
+  options: {
+    docker?: DockerRunner;
+    ufaFetch?: typeof fetch;
+    ufaEvidence?: "fixture" | "unverified";
+  } = {},
 ) {
   assertApiDeploymentConfig(config);
   const auth = await createAuth(db, config),
@@ -46,6 +52,11 @@ export async function createApp(
   });
   const browser = new BrowserService(db, config, auth, files);
   const computer = new ComputerService(db, config, options.docker);
+  const ufa = new UfaAdapter({
+    ...(config.ufa ?? { enabled: false, timeoutMs: 5_000, maxBytes: 512_000 }),
+    evidence: options.ufaEvidence ?? "unverified",
+    fetch: options.ufaFetch,
+  });
   const agent = new AgentService(db, config, workspace, files, actions, browser, computer);
   const intelligence = new CopilotKitIntelligence({ apiKey: config.intelligenceApiKey });
   const runtime = makeRuntime(config, agent, auth, intelligence);
@@ -158,6 +169,7 @@ export async function createApp(
   });
   app.route("/api/agent", agentRoutes(agent));
   app.route("/api/computer", computerRoutes(computer, files));
+  app.route("/api/ufa", ufaRoutes(ufa, config.ufa?.allowedOwner));
   app.get("/api/calendars", async (c) => c.json(await workspace.calendars(c.get("owner"))));
   app.get("/api/calendar/events", async (c) => {
     const query = z

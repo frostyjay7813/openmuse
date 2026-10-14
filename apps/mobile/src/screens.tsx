@@ -1183,7 +1183,7 @@ export function ActivityScreen() {
   );
 }
 export function ConnectionsScreen({ query = "" }: { query?: string }) {
-  const { workspace: w, api, refresh, notify, open } = useWorkspace();
+  const { workspace: w, api, refresh, notify, open, navigate } = useWorkspace();
   const [selected, setSelected] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -1249,6 +1249,14 @@ export function ConnectionsScreen({ query = "" }: { query?: string }) {
       connected: false,
       group: "openbot",
     },
+    {
+      id: "ufa",
+      name: "Frontier Agent",
+      icon: ShieldCheck,
+      color: "#1473C8",
+      connected: false,
+      group: "ufa",
+    },
   ].filter((row) => `${row.name} ${row.group}`.toLowerCase().includes(query.toLowerCase()));
   return (
     <View style={{ gap: 22 }}>
@@ -1271,7 +1279,11 @@ export function ConnectionsScreen({ query = "" }: { query?: string }) {
                   accessibilityRole="button"
                   accessibilityLabel={`Manage ${row.name}`}
                   onPress={() =>
-                    row.group === "browser" ? open({ type: "computer" }) : setSelected(row.group)
+                    row.group === "browser"
+                      ? open({ type: "computer" })
+                      : row.group === "ufa"
+                        ? navigate("ufa")
+                        : setSelected(row.group)
                   }
                   style={[
                     s.row,
