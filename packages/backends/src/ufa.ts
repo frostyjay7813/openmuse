@@ -1,60 +1,56 @@
 import { z } from "zod";
 
 /** UFA revision this read contract was written against. Not a live-connection claim. */
-export const UFA_CONTRACT_REF = "028b4721df4f71c1ee0c6c0db4a929ce09227e95";
+export const UFA_CONTRACT_REF = "03c543230e4e983cf81c52cb1113164dbd2c47aa";
 
 const ID_PATTERN = /^[a-z][a-z0-9]{0,15}_[0-9a-f]{12,16}$/;
-const HASH_PATTERN = /^[0-9a-f]{64}$/;
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
+const EVENT_TYPE =
+  /^(?:unlisted|(?:task|tool|run|loop|plan|agent|security|session|channel|model|lease|budget|artifact|estop|scheduler|delegation|mission|soak|test)\.[a-z0-9_]{1,40})$/;
+
 const idSchema = z.string().regex(ID_PATTERN);
-const taskSchema = z.object({
-  id: idSchema,
-  title: z.string().max(500),
-  state: z.string().min(1).max(64),
-  created_at: z.string().min(1).max(64),
-  updated_at: z.string().min(1).max(64),
-  attempt: z.number().int().nonnegative().optional(),
-});
-const eventSchema = z.object({
-  id: idSchema,
-  type: z.string().min(1).max(120),
-  task_id: idSchema,
-  created_at: z.string().min(1).max(64),
-  payload: z.unknown().optional(),
-});
-const bundleSchema = z.object({
-  task_id: idSchema,
-  created_at: z.string().min(1).max(64).optional(),
-  manifest_sha256: z.string().regex(HASH_PATTERN),
-  signature: z.string().min(1).max(512).optional(),
-  events: z.array(z.unknown()).max(500).optional(),
-  artifacts: z
-    .array(
-      z.object({
-        id: idSchema,
-        content_hash: z.string().regex(HASH_PATTERN).optional(),
-      }),
-    )
-    .max(100)
-    .optional(),
-  verifications: z.array(z.unknown()).max(100).optional(),
-  approvals: z.array(z.unknown()).max(100).optional(),
-});
-const runSchema = z.object({
-  id: idSchema,
-  task_id: z.union([idSchema, z.literal("")]).optional(),
-  status: z.string().min(1).max(64),
-  created_at: z.string().min(1).max(64),
-  finished_at: z.string().max(64).nullable().optional(),
-});
+const taskSchema = z
+  .object({
+    id: idSchema,
+    state: z.string().min(1).max(64),
+    created_at: z.string().min(1).max(64),
+    updated_at: z.string().min(1).max(64),
+  })
+  .strict();
+const eventSchema = z
+  .object({
+    id: idSchema,
+    type: z.string().regex(EVENT_TYPE),
+    task_id: idSchema,
+    created_at: z.string().min(1).max(64),
+  })
+  .strict();
+const evidenceSchema = z
+  .object({
+    task_id: idSchema,
+    signature_present: z.literal(false),
+    event_count: z.number().int().nonnegative().max(1_000_000),
+    artifact_count: z.number().int().nonnegative().max(1_000_000),
+    verification_count: z.number().int().nonnegative().max(1_000_000),
+    approval_count: z.number().int().nonnegative().max(1_000_000),
+  })
+  .strict();
+const runSchema = z
+  .object({
+    id: idSchema,
+    task_id: idSchema.optional(),
+    status: z.string().min(1).max(64),
+    created_at: z.string().min(1).max(64),
+    finished_at: z.string().max(64),
+  })
+  .strict();
 
 export type UfaEvidence = "fixture" | "unverified";
 export type UfaConnection = "disabled" | "unavailable" | "observed";
 
 export interface UfaTask {
   id: string;
-  title: string;
   state: string;
   created_at: string;
   updated_at: string;
@@ -69,15 +65,12 @@ export interface UfaEventMeta {
 export interface UfaBundleMeta {
   available: true;
   task_id: string;
-  created_at?: string;
-  manifest_sha256: string;
-  signaturePresent: boolean;
+  signaturePresent: false;
   signatureVerified: false;
   eventCount: number;
   artifactCount: number;
   verificationCount: number;
   approvalCount: number;
-  artifacts: { id: string; content_hash?: string }[];
 }
 export interface UfaRun {
   id: string;
@@ -129,16 +122,16 @@ export class UfaError extends Error {
   }
 }
 
-/** True only for the phase-1 GET allowlist. Query strings are not part of the path. */
+/** True only for the observer GET allowlist. Query strings are not part of the path. */
 export function isPermittedUfaRequest(method: string, pathname: string): boolean {
   if (method !== "GET") return false;
   if (!pathname.startsWith("/") || /[?#\\%]|\.\./.test(pathname)) return false;
-  if (pathname === "/api/tasks" || pathname === "/api/runs") return true;
+  if (pathname === "/api/openmuse/tasks" || pathname === "/api/openmuse/runs") return true;
   const task = pathname.match(
-    /^\/api\/tasks\/([a-z][a-z0-9]{0,15}_[0-9a-f]{12,16})(?:\/(events|bundle))?$/,
+    /^\/api\/openmuse\/tasks\/([a-z][a-z0-9]{0,15}_[0-9a-f]{12,16})(?:\/(events|evidence))?$/,
   );
   if (task) return true;
-  const run = pathname.match(/^\/api\/runs\/([a-z][a-z0-9]{0,15}_[0-9a-f]{12,16})$/);
+  const run = pathname.match(/^\/api\/openmuse\/runs\/([a-z][a-z0-9]{0,15}_[0-9a-f]{12,16})$/);
   return Boolean(run);
 }
 
@@ -251,14 +244,15 @@ export class UfaAdapter {
   async overview(): Promise<UfaView> {
     if (!this.configured) return this.idleView();
     const [tasksBody, runsBody] = await Promise.all([
-      this.#get("/api/tasks", { limit: "20" }),
-      this.#get("/api/runs", { limit: "20" }),
+      this.#get("/api/openmuse/tasks", { limit: "20" }),
+      this.#get("/api/openmuse/runs", { limit: "20" }),
     ]);
-    const tasks = parse(z.object({ tasks: z.array(taskSchema).max(50) }), tasksBody).tasks.map(
-      (task) => this.#task(task),
-    );
-    const runs = parse(z.object({ runs: z.array(runSchema).max(50) }), runsBody).runs.map((run) =>
-      this.#run(run),
+    const tasks = parse(
+      z.object({ tasks: z.array(taskSchema).max(50) }).strict(),
+      tasksBody,
+    ).tasks.map((task) => this.#task(task));
+    const runs = parse(z.object({ runs: z.array(runSchema).max(50) }).strict(), runsBody).runs.map(
+      (run) => this.#run(run),
     );
     const view: UfaView = {
       ...this.#view("observed"),
@@ -273,15 +267,15 @@ export class UfaAdapter {
   async task(id: string): Promise<UfaView> {
     const taskId = this.#id(id);
     if (!this.configured) return this.idleView();
-    const task = this.#task(parse(taskSchema, await this.#get(`/api/tasks/${taskId}`)));
+    const task = this.#task(parse(taskSchema, await this.#get(`/api/openmuse/tasks/${taskId}`)));
     const events = parse(
-      z.object({ events: z.array(eventSchema).max(100) }),
-      await this.#get(`/api/tasks/${taskId}/events`, { limit: "50" }),
+      z.object({ events: z.array(eventSchema).max(100) }).strict(),
+      await this.#get(`/api/openmuse/tasks/${taskId}/events`, { limit: "50" }),
     ).events.map((event) => this.#event(event, taskId));
     let bundle: UfaView["bundle"];
     try {
-      bundle = this.#bundle(
-        parse(bundleSchema, await this.#get(`/api/tasks/${taskId}/bundle`)),
+      bundle = this.#evidence(
+        parse(evidenceSchema, await this.#get(`/api/openmuse/tasks/${taskId}/evidence`)),
         taskId,
       );
     } catch (error) {
@@ -305,7 +299,7 @@ export class UfaAdapter {
   async run(id: string): Promise<UfaView> {
     const runId = this.#id(id);
     if (!this.configured) return this.idleView();
-    const run = this.#run(parse(runSchema, await this.#get(`/api/runs/${runId}`)));
+    const run = this.#run(parse(runSchema, await this.#get(`/api/openmuse/runs/${runId}`)));
     if (run.id !== runId)
       throw new UfaError("invalid_response", "UFA response did not match the read contract");
     const view: UfaView = {
@@ -335,7 +329,6 @@ export class UfaAdapter {
   #task(task: z.infer<typeof taskSchema>): UfaTask {
     return {
       id: task.id,
-      title: redact(task.title, this.#apiKey),
       state: redact(task.state, this.#apiKey),
       created_at: task.created_at,
       updated_at: task.updated_at,
@@ -354,24 +347,18 @@ export class UfaAdapter {
     };
   }
 
-  #bundle(bundle: z.infer<typeof bundleSchema>, taskId: string): UfaBundleMeta {
-    if (bundle.task_id !== taskId)
+  #evidence(evidence: z.infer<typeof evidenceSchema>, taskId: string): UfaBundleMeta {
+    if (evidence.task_id !== taskId)
       throw new UfaError("invalid_response", "UFA response did not match the read contract");
     return {
       available: true,
-      task_id: bundle.task_id,
-      ...(bundle.created_at ? { created_at: bundle.created_at } : {}),
-      manifest_sha256: bundle.manifest_sha256,
-      signaturePresent: Boolean(bundle.signature),
+      task_id: evidence.task_id,
+      signaturePresent: false,
       signatureVerified: false,
-      eventCount: bundle.events?.length ?? 0,
-      artifactCount: bundle.artifacts?.length ?? 0,
-      verificationCount: bundle.verifications?.length ?? 0,
-      approvalCount: bundle.approvals?.length ?? 0,
-      artifacts: (bundle.artifacts ?? []).map((artifact) => ({
-        id: artifact.id,
-        ...(artifact.content_hash ? { content_hash: artifact.content_hash } : {}),
-      })),
+      eventCount: evidence.event_count,
+      artifactCount: evidence.artifact_count,
+      verificationCount: evidence.verification_count,
+      approvalCount: evidence.approval_count,
     };
   }
 

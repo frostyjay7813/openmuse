@@ -23,7 +23,6 @@ const TASK = "task_0123456789abcdef";
 const RUN = "run_0123456789abcdef";
 const EVENT = "evt_0123456789abcdef";
 const ART = "art_0123456789abcdef";
-const HASH = "ab".repeat(32);
 const MARKER = "openmuse-sensitive-marker";
 const ORIGIN = "http://127.0.0.1:8000";
 
@@ -109,24 +108,29 @@ test("startup rejects an enabled bridge with a missing key and ignores it when d
 });
 
 test("only the documented GET paths are permitted", () => {
-  assert.equal(isPermittedUfaRequest("GET", "/api/tasks"), true);
-  assert.equal(isPermittedUfaRequest("GET", `/api/tasks/${TASK}`), true);
-  assert.equal(isPermittedUfaRequest("GET", `/api/tasks/${TASK}/events`), true);
-  assert.equal(isPermittedUfaRequest("GET", `/api/tasks/${TASK}/bundle`), true);
-  assert.equal(isPermittedUfaRequest("GET", "/api/runs"), true);
-  assert.equal(isPermittedUfaRequest("GET", `/api/runs/${RUN}`), true);
+  assert.equal(isPermittedUfaRequest("GET", "/api/openmuse/tasks"), true);
+  assert.equal(isPermittedUfaRequest("GET", `/api/openmuse/tasks/${TASK}`), true);
+  assert.equal(isPermittedUfaRequest("GET", `/api/openmuse/tasks/${TASK}/events`), true);
+  assert.equal(isPermittedUfaRequest("GET", `/api/openmuse/tasks/${TASK}/evidence`), true);
+  assert.equal(isPermittedUfaRequest("GET", "/api/openmuse/runs"), true);
+  assert.equal(isPermittedUfaRequest("GET", `/api/openmuse/runs/${RUN}`), true);
   for (const [method, path] of [
-    ["POST", "/api/tasks"],
-    ["PUT", `/api/tasks/${TASK}`],
-    ["PATCH", `/api/tasks/${TASK}`],
-    ["DELETE", `/api/runs/${RUN}`],
+    ["POST", "/api/openmuse/tasks"],
+    ["PUT", `/api/openmuse/tasks/${TASK}`],
+    ["PATCH", `/api/openmuse/tasks/${TASK}`],
+    ["DELETE", `/api/openmuse/runs/${RUN}`],
     ["GET", "/api/keys"],
-    ["GET", "/api/tasks?redact=false"],
-    ["GET", `/api/tasks/${TASK}/verify`],
-    ["GET", `/api/tasks/${TASK}/transition`],
+    ["GET", "/api/tasks"],
+    ["GET", "/api/runs"],
+    ["GET", `/api/tasks/${TASK}`],
+    ["GET", `/api/tasks/${TASK}/events`],
+    ["GET", `/api/tasks/${TASK}/bundle`],
+    ["GET", `/api/runs/${RUN}`],
+    ["GET", `/api/openmuse/tasks/${TASK}/bundle`],
+    ["GET", "/api/openmuse/tasks?redact=false"],
     ["GET", `/api/artifacts/${ART}`],
-    ["GET", "/api/tasks/../keys"],
-    ["GET", "https://evil.example/api/tasks"],
+    ["GET", "/api/openmuse/tasks/../keys"],
+    ["GET", "https://evil.example/api/openmuse/tasks"],
   ] as const) {
     assert.equal(isPermittedUfaRequest(method, path), false, `${method} ${path}`);
   }
@@ -252,54 +256,46 @@ test("fixture: observed task and run data keeps source status and drops payloads
       authorization: new Headers(init?.headers).get("authorization"),
       redirect: init?.redirect,
     });
-    if (url.pathname === "/api/tasks") {
+    if (url.pathname === "/api/openmuse/tasks") {
       return json({
         tasks: [
           {
             id: TASK,
-            title: `${KEY} visible`,
-            state: "RUNNING",
+            state: `${KEY} visible`,
             created_at: "2026-10-13T10:00:00+00:00",
             updated_at: "2026-10-13T10:05:00+00:00",
-            session_id: "sess_0123456789abcdef",
           },
         ],
       });
     }
-    if (url.pathname === "/api/runs") {
+    if (url.pathname === "/api/openmuse/runs") {
       return json({
         runs: [
           {
             id: RUN,
             task_id: TASK,
             status: "running",
-            result: { secret: MARKER, key: KEY },
-            goal: MARKER,
             created_at: "2026-10-13T10:01:00+00:00",
-            finished_at: null,
+            finished_at: "",
           },
           {
             id: "run_0123456789ab",
-            task_id: "",
             status: "running",
-            goal: MARKER,
-            result: MARKER,
             created_at: "2026-10-13T10:01:30+00:00",
             finished_at: "",
           },
         ],
       });
     }
-    if (url.pathname === `/api/tasks/${TASK}`) {
+    if (url.pathname === `/api/openmuse/tasks/${TASK}`) {
       return json({
         id: TASK,
-        title: "Observe only",
         state: "RUNNING",
         created_at: "2026-10-13T10:00:00+00:00",
         updated_at: "2026-10-13T10:05:00+00:00",
       });
     }
-    if (url.pathname === `/api/tasks/${TASK}/events`) {
+    if (url.pathname === `/api/openmuse/tasks/${TASK}/events`) {
       return json({
         events: [
           {
@@ -307,32 +303,27 @@ test("fixture: observed task and run data keeps source status and drops payloads
             type: "tool.output",
             task_id: TASK,
             created_at: "2026-10-13T10:02:00+00:00",
-            payload: { password: MARKER, authorization: KEY },
           },
         ],
       });
     }
-    if (url.pathname === `/api/tasks/${TASK}/bundle`) {
+    if (url.pathname === `/api/openmuse/tasks/${TASK}/evidence`) {
       return json({
         task_id: TASK,
-        created_at: "2026-10-13T10:06:00+00:00",
-        manifest_sha256: HASH,
-        signature: "not-a-verification",
-        events: [{ payload: { password: MARKER } }],
-        artifacts: [{ id: ART, name: "secret.txt", content_hash: HASH, bytes: MARKER }],
-        verifications: [{}],
-        approvals: [{ decided_by: MARKER }],
+        signature_present: false,
+        event_count: 1,
+        artifact_count: 0,
+        verification_count: 0,
+        approval_count: 0,
       });
     }
-    if (url.pathname === `/api/runs/${RUN}`) {
+    if (url.pathname === `/api/openmuse/runs/${RUN}`) {
       return json({
         id: RUN,
         task_id: TASK,
         status: "failed",
         created_at: "2026-10-13T10:01:00+00:00",
         finished_at: "2026-10-13T10:03:00+00:00",
-        result: MARKER,
-        steps: [{ payload: { secret: MARKER } }],
       });
     }
     return json({ detail: "no" }, 404);
@@ -353,9 +344,9 @@ test("fixture: observed task and run data keeps source status and drops payloads
     assert.equal(overview.live, false);
     assert.equal(overview.disposition, "NOT_CONNECTED");
     assert.equal(overview.evidence, "fixture");
-    assert.equal(overview.tasks?.[0]?.state, "RUNNING");
+    assert.equal(overview.tasks?.[0]?.state, "[redacted] visible");
     assert.equal(overview.tasks?.[0]?.created_at, "2026-10-13T10:00:00+00:00");
-    assert.equal(overview.tasks?.[0]?.title, "[redacted] visible");
+    assert.equal("title" in (overview.tasks?.[0] ?? {}), false);
     assert.equal(overview.runs?.[0]?.status, "running");
     assert.equal(overview.runs?.[1]?.id, "run_0123456789ab");
     assert.equal(overview.runs?.[1]?.status, "running");
@@ -369,7 +360,7 @@ test("fixture: observed task and run data keeps source status and drops payloads
     );
     assert.equal(
       task.bundle && "signaturePresent" in task.bundle && task.bundle.signaturePresent,
-      true,
+      false,
     );
     assert.equal(task.bundle && "eventCount" in task.bundle && task.bundle.eventCount, 1);
     assert.equal(run.run?.status, "failed");
@@ -394,6 +385,103 @@ test("fixture: observed task and run data keeps source status and drops payloads
   } finally {
     console.error = original;
   }
+});
+
+test("fixture: protected fields fail the read contract instead of being copied", async () => {
+  const fetchImpl: typeof fetch = async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname === "/api/openmuse/tasks") {
+      return json({
+        tasks: [
+          {
+            id: TASK,
+            title: MARKER,
+            state: "RUNNING",
+            created_at: "2026-10-13T10:00:00+00:00",
+            updated_at: "2026-10-13T10:00:00+00:00",
+          },
+        ],
+      });
+    }
+    return json({
+      runs: [
+        {
+          id: RUN,
+          status: "running",
+          goal: MARKER,
+          result: MARKER,
+          steps: [{ secret: MARKER }],
+          created_at: "2026-10-13T10:00:00+00:00",
+          finished_at: "",
+        },
+      ],
+    });
+  };
+  const adapter = new UfaAdapter({
+    enabled: true,
+    baseUrl: ORIGIN,
+    apiKey: KEY,
+    evidence: "fixture",
+    fetch: fetchImpl,
+  });
+  const failed = adapter.failureView(await adapter.overview().catch((error: unknown) => error));
+  assert.equal(failed.connection, "unavailable");
+  assert.equal(failed.live, false);
+  assert.equal(failed.disposition, "NOT_CONNECTED");
+  assert.equal(failed.tasks, undefined);
+  assert.equal(failed.runs, undefined);
+  assert.equal(JSON.stringify(failed).includes(MARKER), false);
+  assert.equal(JSON.stringify(failed).includes(KEY), false);
+
+  const taskFetch: typeof fetch = async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname === `/api/openmuse/tasks/${TASK}`) {
+      return json({
+        id: TASK,
+        state: "RUNNING",
+        created_at: "2026-10-13T10:00:00+00:00",
+        updated_at: "2026-10-13T10:00:00+00:00",
+      });
+    }
+    if (url.pathname.endsWith("/events")) {
+      return json({
+        events: [
+          {
+            id: EVENT,
+            type: "tool.output",
+            task_id: TASK,
+            created_at: "2026-10-13T10:02:00+00:00",
+            payload: { password: MARKER },
+          },
+        ],
+      });
+    }
+    return json({
+      task_id: TASK,
+      signature_present: true,
+      signature: "not-a-verification",
+      manifest_sha256: "ab".repeat(32),
+      event_count: 1,
+      artifact_count: 0,
+      verification_count: 0,
+      approval_count: 0,
+    });
+  };
+  const strict = new UfaAdapter({
+    enabled: true,
+    baseUrl: ORIGIN,
+    apiKey: KEY,
+    evidence: "fixture",
+    fetch: taskFetch,
+  });
+  const rejected = strict.failureView(await strict.task(TASK).catch((error: unknown) => error));
+  assert.equal(rejected.connection, "unavailable");
+  assert.equal(rejected.task, undefined);
+  assert.equal(rejected.events, undefined);
+  const encoded = JSON.stringify(rejected);
+  assert.equal(encoded.includes(MARKER), false);
+  assert.equal(encoded.includes("not-a-verification"), false);
+  assert.equal(encoded.includes(KEY), false);
 });
 
 test("the mobile client does not contain the UFA key setting or a fixture key", async () => {
@@ -428,12 +516,11 @@ describe("UFA bridge HTTP routes (fixtures, not live evidence)", { concurrency: 
       const url = new URL(String(input));
       if (mode === "unauthorized") return json({ detail: KEY }, 401);
       if (mode === "missing") return json({ detail: "missing" }, 404);
-      if (url.pathname === "/api/tasks") {
+      if (url.pathname === "/api/openmuse/tasks") {
         return json({
           tasks: [
             {
               id: TASK,
-              title: "Observe only",
               state: "REQUESTED",
               created_at: "2026-10-13T10:00:00+00:00",
               updated_at: "2026-10-13T10:00:00+00:00",
@@ -441,30 +528,29 @@ describe("UFA bridge HTTP routes (fixtures, not live evidence)", { concurrency: 
           ],
         });
       }
-      if (url.pathname === "/api/runs") return json({ runs: [] });
-      if (url.pathname === `/api/tasks/${TASK}`) {
+      if (url.pathname === "/api/openmuse/runs") return json({ runs: [] });
+      if (url.pathname === `/api/openmuse/tasks/${TASK}`) {
         return json({
           id: TASK,
-          title: "Observe only",
           state: "REQUESTED",
           created_at: "2026-10-13T10:00:00+00:00",
           updated_at: "2026-10-13T10:00:00+00:00",
         });
       }
-      if (url.pathname === `/api/tasks/${TASK}/events`) {
+      if (url.pathname === `/api/openmuse/tasks/${TASK}/events`) {
         return json({
           events: [
             {
               id: EVENT,
-              type: "note",
+              type: "task.created",
               task_id: TASK,
               created_at: "2026-10-13T10:02:00+00:00",
-              payload: { secret: MARKER },
             },
           ],
         });
       }
-      if (url.pathname === `/api/tasks/${TASK}/bundle`) return json({ detail: "none" }, 501);
+      if (url.pathname === `/api/openmuse/tasks/${TASK}/evidence`)
+        return json({ detail: "none" }, 501);
       return json({ detail: "unmapped" }, 404);
     };
     const enabled: Config = {

@@ -7,7 +7,6 @@ import { useWorkspace } from "./workspace";
 type UfaConnection = "disabled" | "unavailable" | "observed";
 interface UfaTask {
   id: string;
-  title: string;
   state: string;
   created_at: string;
   updated_at: string;
@@ -21,11 +20,12 @@ interface UfaEventMeta {
 interface UfaBundleMeta {
   available: boolean;
   reason?: string;
-  manifest_sha256?: string;
-  signaturePresent?: boolean;
+  signaturePresent?: false;
   signatureVerified?: false;
   eventCount?: number;
   artifactCount?: number;
+  verificationCount?: number;
+  approvalCount?: number;
 }
 interface UfaRun {
   id: string;
@@ -129,7 +129,7 @@ export function UfaScreen() {
               >
                 <Card style={{ gap: 6 }}>
                   <View style={s.between}>
-                    <Text style={s.heading}>{task.title || "Untitled task"}</Text>
+                    <Text style={s.heading}>{task.id}</Text>
                     <Chip>{task.state}</Chip>
                   </View>
                   <Text style={s.small}>Created {task.created_at}</Text>
@@ -157,7 +157,7 @@ export function UfaScreen() {
           )}
           {detail?.task && (
             <Card style={{ gap: 8 }}>
-              <Text style={s.heading}>{detail.task.title || "Task"}</Text>
+              <Text style={s.heading}>{detail.task.id}</Text>
               <Text style={s.small}>State {detail.task.state}</Text>
               <Text style={s.label}>Events</Text>
               {detail.events?.length ? (
@@ -173,14 +173,11 @@ export function UfaScreen() {
               <Text style={s.label}>Evidence</Text>
               {detail.bundle?.available ? (
                 <View style={{ gap: 4 }}>
-                  <Text style={s.small}>Manifest {detail.bundle.manifest_sha256}</Text>
-                  <Text style={s.small}>
-                    Signature {detail.bundle.signaturePresent ? "present" : "absent"}. Not
-                    independently verified.
-                  </Text>
+                  <Text style={s.small}>Signature absent. Not independently verified.</Text>
                   <Text style={s.small}>
                     {detail.bundle.eventCount ?? 0} events · {detail.bundle.artifactCount ?? 0}{" "}
-                    artifacts
+                    artifacts · {detail.bundle.verificationCount ?? 0} verifications ·{" "}
+                    {detail.bundle.approvalCount ?? 0} approvals
                   </Text>
                 </View>
               ) : (
